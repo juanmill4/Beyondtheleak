@@ -1,0 +1,1126 @@
+/**
+ * DarkEye Graph Visualization
+ * Manages vis-network graph rendering and interactions
+ */
+import { Network } from 'vis-network';
+import { DataSet } from 'vis-data';
+
+// -- Color Palette for groups --
+const GROUP_COLORS = [
+    '#00d4ff', '#ff3366', '#00e676', '#ffab00', '#b388ff',
+    '#ff6e40', '#18ffff', '#eeff41', '#ff80ab', '#69f0ae',
+    '#7c4dff', '#ffd740', '#448aff', '#ff5252', '#64ffda',
+];
+
+// Helper to calculate a color with opacity
+function hexToRgba(hex, alpha) {
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Convert country code or name to emoji flag
+function countryToFlag(country) {
+    if (!country) return '';
+    // If it's a 2-letter country code
+    if (country.length === 2) {
+        return country.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
+    }
+    // Hardcode some common names based on data
+    const map = {
+        'Spain': '🇪🇸', 'United States': '🇺🇸', 'United Kingdom': '🇬🇧', 'France': '🇫🇷',
+        'Germany': '🇩🇪', 'Italy': '🇮🇹', 'Portugal': '🇵🇹', 'Mexico': '🇲🇽', 'Brazil': '🇧🇷',
+        'Russia': '🇷🇺', 'China': '🇨🇳', 'Japan': '🇯🇵', 'India': '🇮🇳', 'Canada': '🇨🇦',
+        'Australia': '🇦🇺', 'Argentina': '🇦🇷', 'Colombia': '🇨🇴', 'Peru': '🇵🇪', 'Chile': '🇨🇱',
+        'Poland': '🇵🇱', 'Netherlands': '🇳🇱', 'Turkey': '🇹🇷'
+    };
+    return map[country] || '🏳️';
+}
+
+function getGroupColor(groupName) {
+    let hash = 0;
+    for (let i = 0; i < groupName.length; i++) {
+        hash = groupName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return GROUP_COLORS[Math.abs(hash) % GROUP_COLORS.length];
+}
+
+export class GraphManager {
+    constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.nodesDataset = new DataSet();
+        this.edgesDataset = new DataSet();
+        this.network = null;
+        this.allNodesData = [];   // Original data for filtering
+        this.allEdgesData = [];
+        this.deletedNodes = new Map();  // id -> node data
+        this.nodeHistory = [];    // { action, nodeId, data, timestamp }
+        this.selectedNodeId = null;
+        this.connectionMode = false;
+        this.connectionSourceId = null;
+
+        // Callbacks
+        this.onNodeSelect = null;
+        this.onNodeDeselect = null;
+        this.onNodeContextMenu = null;
+        this.onSuperuserDoubleClick = null; // Callback for superuser popup
+
+        // Exploration tracking
+        this.explorationNodeIds = new Set();
+        this.explorationEdgeIds = new Set();
+        this.explorationVisible = true;
+        this.exploredUserIds = new Set();
+    }
+
+
+    init() {
+        const options = {
+            physics: {
+                enabled: true,
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: {
+                    gravitationalConstant: -60,
+                    centralGravity: 0.008,
+                    springLength: 150,
+                    springConstant: 0.04,
+                    damping: 0.4,
+                    avoidOverlap: 0.5,
+                },
+                stabilization: {
+                    enabled: true,
+                    iterations: 200,
+                    updateInterval: 25,
+                },
+                maxVelocity: 30,
+                minVelocity: 0.5,
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 200,
+                dragNodes: true,
+                dragView: true,
+                zoomView: true,
+                multiselect: false,
+            },
+            edges: {
+                smooth: {
+                    type: 'continuous',
+                    roundness: 0.3,
+                },
+                width: 1.2,
+                color: {
+                    color: 'rgba(100, 116, 139, 0.35)',
+                    highlight: 'rgba(0, 212, 255, 0.6)',
+                    hover: 'rgba(0, 212, 255, 0.4)',
+                },
+                selectionWidth: 2,
+            },
+            nodes: {
+                borderWidth: 2,
+                borderWidthSelected: 3,
+                font: {
+                    color: '#e2e8f0',
+                    face: 'Inter, sans-serif',
+                    size: 12,
+                },
+                shadow: {
+                    enabled: true,
+                    color: 'rgba(0,0,0,0.3)',
+                    size: 8,
+                    x: 0,
+                    y: 2,
+                },
+            },
+            groups: {
+                domainPrimary: {
+                    shape: 'hexagon',
+                    size: 40,
+                    color: {
+                        background: 'rgba(68, 138, 255, 0.15)',
+                        border: '#448aff',
+                        highlight: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                        hover: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                    },
+                    font: { size: 16, color: '#448aff', bold: true },
+                    shadow: { enabled: true, color: 'rgba(68, 138, 255, 0.3)', size: 15 },
+                    borderWidth: 3,
+                },
+                domainSecondary: {
+                    shape: 'hexagon',
+                    size: 30,
+                    color: {
+                        background: 'rgba(226, 232, 240, 0.08)',
+                        border: '#e2e8f0',
+                        highlight: { background: 'rgba(226, 232, 240, 0.15)', border: '#f1f5f9' },
+                        hover: { background: 'rgba(226, 232, 240, 0.15)', border: '#f1f5f9' },
+                    },
+                    font: { size: 14, color: '#e2e8f0', bold: true },
+                    shadow: { enabled: true, color: 'rgba(226, 232, 240, 0.15)', size: 10 },
+                    borderWidth: 2,
+                },
+                domain: {
+                    shape: 'hexagon',
+                    size: 40,
+                    color: {
+                        background: 'rgba(68, 138, 255, 0.15)',
+                        border: '#448aff',
+                        highlight: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                        hover: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                    },
+                    font: { size: 16, color: '#448aff', bold: true },
+                    shadow: { enabled: true, color: 'rgba(68, 138, 255, 0.3)', size: 15 },
+                    borderWidth: 3,
+                },
+                servicePrimary: {
+                    shape: 'square',
+                    size: 25,
+                    color: {
+                        background: 'rgba(68, 138, 255, 0.15)',
+                        border: '#448aff',
+                        highlight: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                        hover: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                    },
+                    font: { size: 10, color: '#448aff' },
+                    borderWidth: 2,
+                },
+                service: {
+                    shape: 'square',
+                    size: 25,
+                    font: { size: 10, color: '#f1f5f9' },
+                    borderWidth: 2,
+                },
+                userEmployee: {
+                    shape: 'dot',
+                    size: 17,
+                    color: {
+                        background: 'rgba(68, 138, 255, 0.15)',
+                        border: '#448aff',
+                        highlight: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                        hover: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                    },
+                    font: { size: 9, color: '#448aff' },
+                    borderWidth: 1.5,
+                },
+                userExternal: {
+                    shape: 'dot',
+                    size: 15,
+                    color: {
+                        background: 'rgba(226, 232, 240, 0.08)',
+                        border: '#e2e8f0',
+                        highlight: { background: 'rgba(226, 232, 240, 0.15)', border: '#f1f5f9' },
+                        hover: { background: 'rgba(226, 232, 240, 0.15)', border: '#f1f5f9' },
+                    },
+                    font: { size: 9, color: '#e2e8f0' },
+                    borderWidth: 1.5,
+                },
+                userIdentifiable: {
+                    shape: 'dot',
+                    size: 17,
+                    color: {
+                        background: 'rgba(0, 230, 118, 0.15)',
+                        border: '#00e676',
+                        highlight: { background: 'rgba(0, 230, 118, 0.25)', border: '#00e676' },
+                        hover: { background: 'rgba(0, 230, 118, 0.25)', border: '#00e676' },
+                    },
+                    font: { size: 9, color: '#00e676' },
+                    borderWidth: 1.5,
+                },
+                userPossibleIdentifiable: {
+                    shape: 'dot',
+                    size: 16,
+                    color: {
+                        background: 'rgba(255, 171, 0, 0.15)',
+                        border: '#ffab00',
+                        highlight: { background: 'rgba(255, 171, 0, 0.25)', border: '#ffab00' },
+                        hover: { background: 'rgba(255, 171, 0, 0.25)', border: '#ffab00' },
+                    },
+                    font: { size: 9, color: '#ffab00' },
+                    borderWidth: 1.5,
+                },
+                userNonIdentifiable: {
+                    shape: 'dot',
+                    size: 14,
+                    color: {
+                        background: 'rgba(100, 116, 139, 0.15)',
+                        border: '#64748b',
+                        highlight: { background: 'rgba(100, 116, 139, 0.25)', border: '#94a3b8' },
+                        hover: { background: 'rgba(100, 116, 139, 0.25)', border: '#94a3b8' },
+                    },
+                    font: { size: 9, color: '#64748b' },
+                    borderWidth: 1.5,
+                },
+                user: {
+                    shape: 'dot',
+                    size: 15,
+                    color: {
+                        background: '#1e293b',
+                        border: '#64748b',
+                        highlight: { background: '#334155', border: '#94a3b8' },
+                        hover: { background: '#334155', border: '#94a3b8' },
+                    },
+                    font: { size: 9, color: '#94a3b8' },
+                    borderWidth: 1.5,
+                },
+                userOrg: {
+                    shape: 'dot',
+                    size: 17,
+                    color: {
+                        background: 'rgba(68, 138, 255, 0.15)',
+                        border: '#448aff',
+                        highlight: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                        hover: { background: 'rgba(68, 138, 255, 0.25)', border: '#448aff' },
+                    },
+                    font: { size: 9, color: '#448aff' },
+                    borderWidth: 1.5,
+                },
+                userDeleted: {
+                    shape: 'dot',
+                    size: 12,
+                    color: {
+                        background: 'rgba(255, 51, 102, 0.1)',
+                        border: 'rgba(255, 51, 102, 0.4)',
+                        highlight: { background: 'rgba(255, 51, 102, 0.2)', border: '#ff3366' },
+                        hover: { background: 'rgba(255, 51, 102, 0.2)', border: '#ff3366' },
+                    },
+                    font: { size: 9, color: 'rgba(255, 51, 102, 0.6)' },
+                    borderWidth: 1,
+                },
+                superuserOrg: {
+                    shape: 'triangle',
+                    size: 28,
+                    color: {
+                        background: 'rgba(68, 138, 255, 0.2)',
+                        border: '#448aff',
+                        highlight: { background: 'rgba(68, 138, 255, 0.35)', border: '#448aff' },
+                        hover: { background: 'rgba(68, 138, 255, 0.3)', border: '#448aff' },
+                    },
+                    font: { size: 11, color: '#448aff', bold: true },
+                    shadow: { enabled: true, color: 'rgba(68, 138, 255, 0.25)', size: 12 },
+                    borderWidth: 2.5,
+                },
+                superuserExternal: {
+                    shape: 'triangle',
+                    size: 25,
+                    color: {
+                        background: 'rgba(226, 232, 240, 0.12)',
+                        border: '#e2e8f0',
+                        highlight: { background: 'rgba(226, 232, 240, 0.2)', border: '#f1f5f9' },
+                        hover: { background: 'rgba(226, 232, 240, 0.18)', border: '#f1f5f9' },
+                    },
+                    font: { size: 11, color: '#e2e8f0' },
+                    shadow: { enabled: true, color: 'rgba(226, 232, 240, 0.15)', size: 10 },
+                    borderWidth: 2,
+                },
+                superuserIdentifiable: {
+                    shape: 'triangle',
+                    size: 28,
+                    color: {
+                        background: 'rgba(0, 230, 118, 0.2)',
+                        border: '#00e676',
+                        highlight: { background: 'rgba(0, 230, 118, 0.35)', border: '#00e676' },
+                        hover: { background: 'rgba(0, 230, 118, 0.3)', border: '#00e676' },
+                    },
+                    font: { size: 11, color: '#00e676', bold: true },
+                    shadow: { enabled: true, color: 'rgba(0, 230, 118, 0.25)', size: 12 },
+                    borderWidth: 2.5,
+                },
+                superuserPossibleIdentifiable: {
+                    shape: 'triangle',
+                    size: 26,
+                    color: {
+                        background: 'rgba(255, 171, 0, 0.2)',
+                        border: '#ffab00',
+                        highlight: { background: 'rgba(255, 171, 0, 0.35)', border: '#ffab00' },
+                        hover: { background: 'rgba(255, 171, 0, 0.3)', border: '#ffab00' },
+                    },
+                    font: { size: 11, color: '#ffab00', bold: true },
+                    shadow: { enabled: true, color: 'rgba(255, 171, 0, 0.25)', size: 12 },
+                    borderWidth: 2.5,
+                },
+                superuserNonIdentifiable: {
+                    shape: 'triangle',
+                    size: 24,
+                    color: {
+                        background: 'rgba(100, 116, 139, 0.15)',
+                        border: '#64748b',
+                        highlight: { background: 'rgba(100, 116, 139, 0.25)', border: '#94a3b8' },
+                        hover: { background: 'rgba(100, 116, 139, 0.25)', border: '#94a3b8' },
+                    },
+                    font: { size: 11, color: '#64748b' },
+                    shadow: { enabled: true, color: 'rgba(100, 116, 139, 0.15)', size: 10 },
+                    borderWidth: 2,
+                },
+            },
+        };
+
+        this.network = new Network(
+            this.container,
+            { nodes: this.nodesDataset, edges: this.edgesDataset },
+            options
+        );
+
+        // Event handlers
+        this.network.on('click', (params) => {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                this._handleNodeClick(nodeId);
+            } else {
+                this._handleDeselect();
+            }
+        });
+
+        this.network.on('doubleClick', (params) => {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const nodeData = this._getNodeData(nodeId);
+                if (nodeData && nodeData.type === 'superuser' && this.onSuperuserDoubleClick) {
+                    this.onSuperuserDoubleClick(nodeId, nodeData);
+                } else {
+                    this.network.focus(nodeId, {
+                        scale: 1.2,
+                        animation: { duration: 400, easingFunction: 'easeInOutQuad' },
+                    });
+                }
+            }
+        });
+
+        // Right-click context menu
+        this.network.on('oncontext', (params) => {
+            params.event.preventDefault();
+            const nodeId = this.network.getNodeAt(params.pointer.DOM);
+            if (nodeId) {
+                const nodeData = this._getNodeData(nodeId);
+                if (nodeData && nodeData.type === 'user' && this.onNodeContextMenu) {
+                    this.onNodeContextMenu({
+                        nodeId,
+                        nodeData,
+                        x: params.event.clientX || params.pointer.DOM.x,
+                        y: params.event.clientY || params.pointer.DOM.y,
+                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * Load processed data into the graph
+     */
+    loadData(processedData) {
+        this.allNodesData = processedData.nodes;
+        this.allEdgesData = processedData.edges;
+        this.deletedNodes.clear();
+        this.nodeHistory = [];
+        this.explorationNodeIds.clear();
+        this.explorationEdgeIds.clear();
+        this.exploredUserIds.clear();
+        this.explorationVisible = true;
+
+        const visNodes = this.allNodesData.map((n) => this._toVisNode(n));
+        const visEdges = this.allEdgesData.map((e, i) => this._toVisEdge(e, i));
+
+        this.nodesDataset.clear();
+        this.edgesDataset.clear();
+        this.nodesDataset.add(visNodes);
+        this.edgesDataset.add(visEdges);
+
+        this.network.fit({ animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+    }
+
+    _toVisNode(node) {
+        const base = {
+            id: node.id,
+            label: this._truncateLabel(node.label, 25),
+            title: this._buildTooltip(node),
+            _data: node,
+        };
+
+        if (node.type === 'domain') {
+            // All searched domains = blue hexagons, same size and color
+            base.group = 'domainPrimary';
+            base.label = `🌐 ${node.label}`;
+        } else if (node.type === 'service') {
+            // Subdomains of primary domain = blue squares
+            // External services = colored squares based on hostname
+            if (node.isLinkedToDomain) {
+                base.group = 'servicePrimary';
+                const icon = node.sourceType === 'stealer' ? '🔒' : '🌐';
+                base.label = `${icon} ${this._truncateLabel(node.label, 20)}`;
+                if (node.sourceType === 'stealer') {
+                    base.shape = 'diamond';
+                }
+            } else {
+                base.group = 'service';
+                // External services = pink
+                const color = '#ff69b4';
+                base.color = {
+                    background: hexToRgba(color, 0.15),
+                    border: color,
+                    highlight: { background: hexToRgba(color, 0.25), border: color },
+                    hover: { background: hexToRgba(color, 0.25), border: color },
+                };
+                base.font = { size: 10, color: color };
+                const icon = node.sourceType === 'stealer' ? '🔒' : '🌐';
+                base.label = `${icon} ${this._truncateLabel(node.label, 20)}`;
+                if (node.sourceType === 'stealer') {
+                    base.shape = 'diamond';
+                } else {
+                    // External services are hexagons (pink)
+                    base.shape = 'hexagon';
+                    base.size = 22;
+                }
+            }
+        } else if (node.type === 'user') {
+            const userIcon = node.isOrgEmail ? '✓' : '';
+            const flag = (this.filters?.showFlags && node.country) ? countryToFlag(node.country) + ' ' : '';
+            base.label = `${flag}${userIcon}👤 ${this._truncateLabel(node.label, 15)}`;
+
+            if (node.deleted) {
+                base.group = 'userDeleted';
+            } else if (node.identifiable === true) {
+                // After AI analysis: identifiable = green
+                base.group = 'userIdentifiable';
+            } else if (node.possibleIdentifiable === true) {
+                // After AI analysis: possible identifiable = amber
+                base.group = 'userPossibleIdentifiable';
+                base.label = `?${userIcon}👤 ${this._truncateLabel(node.label, 15)}`;
+            } else if (node.identifiable === false) {
+                // After AI analysis: non-identifiable = grey
+                base.group = 'userNonIdentifiable';
+            } else if (node.isOrgEmail) {
+                // Employee = blue circle
+                base.group = 'userEmployee';
+            } else {
+                // Non-employee = white circle
+                base.group = 'userExternal';
+            }
+        } else if (node.type === 'superuser') {
+            const userCount = node.linkedUserIds ? node.linkedUserIds.length : 0;
+            const flag = (this.filters?.showFlags && node.country) ? countryToFlag(node.country) + ' ' : '';
+            base.label = `${flag}🔗 Superuser (${userCount})`;
+            // Select group based on AI analysis result
+            if (node.aiAnalysis) {
+                if (node.aiAnalysis.identifiable) {
+                    base.group = 'superuserIdentifiable';
+                } else if (node.aiAnalysis.possibleIdentifiable) {
+                    base.group = 'superuserPossibleIdentifiable';
+                } else {
+                    base.group = 'superuserNonIdentifiable';
+                }
+            } else {
+                base.group = node.isOrgSuperuser ? 'superuserOrg' : 'superuserExternal';
+            }
+        }
+
+        return base;
+    }
+
+    _toVisEdge(edge, index) {
+        const base = {
+            id: `edge_${index}_${edge.from}_${edge.to}`,
+            from: edge.from,
+            to: edge.to,
+        };
+
+        if (edge.type === 'domain-service') {
+            base.width = 2;
+            base.color = { color: 'rgba(0, 212, 255, 0.25)' };
+            base.dashes = false;
+        } else if (edge.type === 'service-user') {
+            base.width = 1;
+            base.color = { color: 'rgba(100, 116, 139, 0.2)' };
+        } else if (edge.type === 'direct-org-user') {
+            base.width = 2;
+            base.color = { color: 'rgba(0, 230, 118, 0.3)' };
+            base.dashes = [10, 5];
+        } else if (edge.type === 'user-user') {
+            base.width = 1.5;
+            base.color = { color: 'rgba(179, 136, 255, 0.4)' };
+            base.dashes = [5, 5];
+        } else if (edge.type === 'domain-domain') {
+            base.width = 2;
+            base.color = { color: 'rgba(0, 212, 255, 0.15)' };
+            base.dashes = true;
+        } else if (edge.type === 'superuser-user') {
+            base.width = 1.5;
+            base.color = { color: 'rgba(68, 138, 255, 0.3)' };
+            base.dashes = [3, 3];
+        }
+
+        return base;
+    }
+
+    _truncateLabel(label, max) {
+        if (!label) return '?';
+        return label.length > max ? label.slice(0, max) + '…' : label;
+    }
+
+    _buildTooltip(node) {
+        const lines = [];
+        if (node.type === 'domain') {
+            lines.push(`<b>Domain:</b> ${node.label}`);
+            const domainCount = this.allNodesData.filter((n) => n.type === 'domain').length;
+            if (domainCount > 1) {
+                lines.push(`<b>Total Domains:</b> ${domainCount}`);
+            }
+        } else if (node.type === 'service') {
+            lines.push(`<b>Hostname:</b> ${node.hostname || node.label}`);
+            if (node.sourceType) lines.push(`<b>Type:</b> ${node.sourceType === 'stealer' ? 'Infostealer Logs' : 'Breach Data'}`);
+            if (node.isLinkedToDomain !== undefined) {
+                lines.push(`<b>Linked:</b> ${node.isLinkedToDomain ? '✓ Yes' : '✗ No'}`);
+            }
+            if (node.mainDomain && !node.isLinkedToDomain) {
+                lines.push(`<b style="color:#94a3b8">External Service</b>`);
+            }
+            if (node.usersCount !== undefined) lines.push(`<b>Users:</b> ${node.usersCount}`);
+            if (node.credentialsFound) lines.push(`<b>Credentials:</b> ${node.credentialsFound}`);
+        } else if (node.type === 'user') {
+            if (node.email) lines.push(`<b>Email:</b> ${node.email}`);
+            if (node.username) lines.push(`<b>Username:</b> ${node.username}`);
+            if (node.name) lines.push(`<b>Name:</b> ${node.name}`);
+            if (node.phone) lines.push(`<b>Phone:</b> ${node.phone}`);
+            if (node.isOrgEmail) lines.push(`<b style="color:#00e676">Organization Email</b>`);
+            if (node.serviceIds) lines.push(`<b>Hostnames:</b> ${node.serviceIds.length}`);
+            if (node.deleted) lines.push(`<b style="color:#ff3366">DELETED</b>`);
+            if (node.identifiable === true) lines.push(`<b style="color:#ffab00">Identifiable</b>`);
+        } else if (node.type === 'superuser') {
+            const userCount = node.linkedUserIds ? node.linkedUserIds.length : 0;
+            const hwidCount = node.allHwids ? node.allHwids.length : 0;
+            lines.push(`<b>Superuser</b>`);
+            lines.push(`<b>Linked Users:</b> ${userCount}`);
+            lines.push(`<b>HWIDs:</b> ${hwidCount}`);
+            if (node.isOrgSuperuser) lines.push(`<b style="color:#448aff">Organization Linked</b>`);
+            if (node.country) lines.push(`<b>Country:</b> ${node.country}`);
+            if (node.aiAnalysis) lines.push(`<b style="color:#ffab00">AI Analyzed</b>`);
+            lines.push(`<i style="color:#94a3b8">Double-click for details</i>`);
+        }
+        return lines.join('<br>');
+    }
+
+    _handleNodeClick(nodeId) {
+        if (this.connectionMode) {
+            this._completeConnection(nodeId);
+            return;
+        }
+
+        this.selectedNodeId = nodeId;
+        const nodeData = this._getNodeData(nodeId);
+        if (this.onNodeSelect) {
+            this.onNodeSelect(nodeId, nodeData);
+        }
+    }
+
+    _handleDeselect() {
+        this.selectedNodeId = null;
+        if (this.connectionMode) {
+            this.exitConnectionMode();
+        }
+        if (this.onNodeDeselect) {
+            this.onNodeDeselect();
+        }
+    }
+
+    _getNodeData(nodeId) {
+        const visNode = this.nodesDataset.get(nodeId);
+        return visNode?._data || null;
+    }
+
+    /**
+     * Soft-delete a node (mark as deleted, store in history)
+     */
+    deleteNode(nodeId) {
+        const nodeData = this._getNodeData(nodeId);
+        if (!nodeData || nodeData.type === 'domain') return;
+
+        // Record in history
+        this.nodeHistory.push({
+            action: 'delete',
+            nodeId,
+            data: { ...nodeData },
+            timestamp: Date.now(),
+        });
+
+        // Mark as deleted in the underlying data
+        nodeData.deleted = true;
+        this.deletedNodes.set(nodeId, nodeData);
+
+        // Update the original data
+        const origIdx = this.allNodesData.findIndex((n) => n.id === nodeId);
+        if (origIdx >= 0) this.allNodesData[origIdx].deleted = true;
+
+        // Remove from visible graph
+        this.nodesDataset.remove(nodeId);
+
+        // Also remove edges connected to this node
+        const connectedEdges = this.edgesDataset.get({
+            filter: (e) => e.from === nodeId || e.to === nodeId,
+        });
+        this.edgesDataset.remove(connectedEdges.map((e) => e.id));
+
+        this.selectedNodeId = null;
+        if (this.onNodeDeselect) this.onNodeDeselect();
+    }
+
+    /**
+     * Restore a deleted node
+     */
+    restoreNode(nodeId) {
+        const nodeData = this.deletedNodes.get(nodeId);
+        if (!nodeData) return;
+
+        nodeData.deleted = false;
+        this.deletedNodes.delete(nodeId);
+
+        const origIdx = this.allNodesData.findIndex((n) => n.id === nodeId);
+        if (origIdx >= 0) this.allNodesData[origIdx].deleted = false;
+
+        this.nodeHistory.push({
+            action: 'restore',
+            nodeId,
+            data: { ...nodeData },
+            timestamp: Date.now(),
+        });
+    }
+
+    /**
+     * Enter connection mode (to connect two nodes — user-user or domain-domain)
+     */
+    enterConnectionMode(sourceNodeId) {
+        const nodeData = this._getNodeData(sourceNodeId);
+        if (!nodeData || (nodeData.type !== 'user' && nodeData.type !== 'domain')) return false;
+
+        this.connectionMode = true;
+        this.connectionSourceId = sourceNodeId;
+        this._connectionSourceType = nodeData.type;
+        document.body.classList.add('connection-mode');
+        return true;
+    }
+
+    exitConnectionMode() {
+        this.connectionMode = false;
+        this.connectionSourceId = null;
+        document.body.classList.remove('connection-mode');
+    }
+
+    _completeConnection(targetNodeId) {
+        const sourceId = this.connectionSourceId;
+        const sourceType = this._connectionSourceType;
+        const targetData = this._getNodeData(targetNodeId);
+
+        if (!targetData || targetNodeId === sourceId) {
+            this.exitConnectionMode();
+            return;
+        }
+
+        // Domain-domain connection
+        if (sourceType === 'domain' && targetData.type === 'domain') {
+            const edgeId = `edge_dd_${sourceId}_${targetNodeId}`;
+            const newEdge = {
+                from: sourceId,
+                to: targetNodeId,
+                type: 'domain-domain',
+            };
+
+            this.allEdgesData.push(newEdge);
+            this.edgesDataset.add(this._toVisEdge(newEdge, this.allEdgesData.length - 1));
+
+            this.nodeHistory.push({
+                action: 'connect-domain',
+                nodeId: sourceId,
+                data: { source: sourceId, target: targetNodeId },
+                timestamp: Date.now(),
+            });
+
+            this.exitConnectionMode();
+            return;
+        }
+
+        // User-user connection
+        if (sourceType === 'user' && targetData.type === 'user') {
+            const edgeId = `edge_uu_${sourceId}_${targetNodeId}`;
+            const newEdge = {
+                from: sourceId,
+                to: targetNodeId,
+                type: 'user-user',
+            };
+
+            this.allEdgesData.push(newEdge);
+            this.edgesDataset.add(this._toVisEdge(newEdge, this.allEdgesData.length - 1));
+
+            this.nodeHistory.push({
+                action: 'connect',
+                nodeId: sourceId,
+                data: { source: sourceId, target: targetNodeId },
+                timestamp: Date.now(),
+            });
+
+            this.exitConnectionMode();
+            return;
+        }
+
+        // Type mismatch
+        this.exitConnectionMode();
+    }
+
+    /**
+     * Apply filters — show/hide nodes based on criteria
+     */
+    applyFilters(filters) {
+        this.filters = filters; // Save for _toVisNode reference
+        const { showUsers, nameFilter, orgEmail, nonOrgEmail, multiService, showDeleted, identifiableOnly, linkedServicesOnly, hideExternal, stealerOnly, countryFilter } = filters;
+
+        // ---- PASS 1: Determine visible domain and service nodes ----
+        const visibleDomainServiceIds = new Set();
+
+        for (const node of this.allNodesData) {
+            // Domain node always visible
+            if (node.type === 'domain') {
+                visibleDomainServiceIds.add(node.id);
+                continue;
+            }
+
+            // Service node filtering
+            if (node.type === 'service') {
+                // Linked services filter
+                if (linkedServicesOnly && !node.isLinkedToDomain) {
+                    continue;
+                }
+                // Hide external services filter (hide non-org services)
+                if (hideExternal && !node.isLinkedToDomain) {
+                    continue;
+                }
+                visibleDomainServiceIds.add(node.id);
+            }
+        }
+
+        // ---- PASS 2: Filter user nodes ----
+        const visibleUserIds = new Set();
+
+        for (const node of this.allNodesData) {
+            if (node.type !== 'user') continue;
+            if (!showUsers) continue;
+
+            // Stealer-only filter: skip non-stealer users
+            if (stealerOnly && node.dataSource !== 'stealer') continue;
+
+            // Deleted filter
+            if (node.deleted && !showDeleted) continue;
+
+            // Name filter
+            if (nameFilter && nameFilter.trim()) {
+                const search = nameFilter.toLowerCase();
+                const matchName = (node.name || '').toLowerCase().includes(search);
+                const matchEmail = (node.email || '').toLowerCase().includes(search);
+                const matchUsername = (node.username || '').toLowerCase().includes(search);
+                if (!matchName && !matchEmail && !matchUsername) continue;
+            }
+
+            // Org email filter
+            if (orgEmail && !node.isOrgEmail) continue;
+
+            // Non-org email filter
+            if (nonOrgEmail && node.isOrgEmail) continue;
+
+            // Multi-service filter: count actual edges to visible domain/service nodes
+            if (multiService) {
+                const connectedElements = new Set();
+                for (const edge of this.allEdgesData) {
+                    if (edge.to === node.id && visibleDomainServiceIds.has(edge.from)) {
+                        connectedElements.add(edge.from);
+                    }
+                    if (edge.from === node.id && visibleDomainServiceIds.has(edge.to)) {
+                        connectedElements.add(edge.to);
+                    }
+                }
+                if (connectedElements.size < 2) continue;
+            }
+
+            // Identifiable filter
+            if (identifiableOnly && node.identifiable !== true) continue;
+
+            // Linked services filter for users
+            if (linkedServicesOnly) {
+                const hasLinkedService = node.serviceIds && node.serviceIds.some(svcId => {
+                    const svcNode = this.allNodesData.find(n => n.id === svcId);
+                    return svcNode && svcNode.isLinkedToDomain;
+                });
+                if (!hasLinkedService) continue;
+            }
+
+            // Country Filter for users
+            if (countryFilter && node.country && node.country !== countryFilter) continue;
+
+            visibleUserIds.add(node.id);
+        }
+
+        // ---- PASS 3: If stealerOnly, restrict domains/services to those connected to visible stealer users ----
+        let finalVisibleIds;
+        if (stealerOnly) {
+            const connectedDomainServiceIds = new Set();
+            for (const edge of this.allEdgesData) {
+                if (visibleUserIds.has(edge.from) && visibleDomainServiceIds.has(edge.to)) {
+                    connectedDomainServiceIds.add(edge.to);
+                }
+                if (visibleUserIds.has(edge.to) && visibleDomainServiceIds.has(edge.from)) {
+                    connectedDomainServiceIds.add(edge.from);
+                }
+            }
+            finalVisibleIds = new Set([...visibleUserIds, ...connectedDomainServiceIds]);
+        } else {
+            finalVisibleIds = new Set([...visibleDomainServiceIds, ...visibleUserIds]);
+        }
+
+        // ---- PASS 4: Determine visible superuser nodes ----
+        // A superuser is visible if at least one of its connected users is visible
+        for (const node of this.allNodesData) {
+            if (node.type !== 'superuser') continue;
+            const hasVisibleUser = (node.linkedUserIds || []).some(uid => visibleUserIds.has(uid));
+            if (hasVisibleUser) {
+                finalVisibleIds.add(node.id);
+            }
+        }
+
+        // Build edges for visible nodes
+        const visibleEdges = [];
+        for (const edge of this.allEdgesData) {
+            if (finalVisibleIds.has(edge.from) && finalVisibleIds.has(edge.to)) {
+                visibleEdges.push(edge);
+            }
+        }
+
+        // Update datasets
+        this.nodesDataset.clear();
+        this.edgesDataset.clear();
+
+        const visNodes = this.allNodesData
+            .filter((n) => finalVisibleIds.has(n.id))
+            .map((n) => this._toVisNode(n));
+
+        const visEdgesFormatted = visibleEdges.map((e, i) => this._toVisEdge(e, i));
+
+        this.nodesDataset.add(visNodes);
+        this.edgesDataset.add(visEdgesFormatted);
+    }
+
+    /**
+     * Get stats for the header
+     */
+    getStats() {
+        const services = this.allNodesData.filter((n) => n.type === 'service').length;
+        const users = this.allNodesData.filter((n) => n.type === 'user' && !n.deleted).length;
+        const domains = this.allNodesData.filter((n) => n.type === 'domain').length;
+        const superusers = this.allNodesData.filter((n) => n.type === 'superuser').length;
+        const connections = this.allEdgesData.length;
+        return { services, users, connections, domains, superusers };
+    }
+
+    /**
+     * Get all user nodes (for AI analysis)
+     */
+    getUserNodes() {
+        return this.allNodesData.filter((n) => n.type === 'user' && !n.deleted);
+    }
+
+    /**
+     * Update a user node's identifiable status
+     */
+    setUserIdentifiable(userId, identifiable, reasons = []) {
+        const node = this.allNodesData.find((n) => n.id === userId);
+        if (node) {
+            node.identifiable = identifiable;
+            node.identifiableReasons = reasons;
+            // Refresh the node visual in the dataset
+            try {
+                const visNode = this._toVisNode(node);
+                this.nodesDataset.update(visNode);
+            } catch (e) {
+                // Node might not be in the visible dataset
+            }
+        }
+    }
+
+    /**
+     * Dynamically add a node to the live graph
+     * @param {Object} nodeData - node data object
+     * @param {boolean} isExploration - if true, tag as exploration data
+     */
+    addNode(nodeData, isExploration = false) {
+        // Check if node already exists
+        const existing = this.allNodesData.find(n => n.id === nodeData.id);
+        if (existing) return existing;
+
+        if (isExploration) {
+            nodeData._exploration = true;
+            this.explorationNodeIds.add(nodeData.id);
+        }
+
+        this.allNodesData.push(nodeData);
+        try {
+            this.nodesDataset.add(this._toVisNode(nodeData));
+        } catch (e) {
+            // Node might already be in dataset
+        }
+        return nodeData;
+    }
+
+    /**
+     * Dynamically add an edge to the live graph
+     * @param {Object} edgeData - { from, to, type }
+     * @param {boolean} isExploration - if true, tag as exploration data
+     */
+    addEdge(edgeData, isExploration = false) {
+        // Check for duplicate
+        const exists = this.allEdgesData.some(e =>
+            e.from === edgeData.from && e.to === edgeData.to && e.type === edgeData.type
+        );
+        if (exists) return;
+
+        if (isExploration) {
+            edgeData._exploration = true;
+        }
+
+        this.allEdgesData.push(edgeData);
+        const idx = this.allEdgesData.length - 1;
+        const visEdge = this._toVisEdge(edgeData, idx);
+        if (isExploration) {
+            this.explorationEdgeIds.add(visEdge.id);
+        }
+        try {
+            this.edgesDataset.add(visEdge);
+        } catch (e) {
+            // Edge might already exist
+        }
+    }
+
+    /**
+     * Mark a user as explored
+     */
+    setUserExplored(userId) {
+        this.exploredUserIds.add(userId);
+        const node = this.allNodesData.find(n => n.id === userId);
+        if (node) {
+            node._explored = true;
+        }
+    }
+
+    /**
+     * Check if a user has been explored
+     */
+    isUserExplored(userId) {
+        return this.exploredUserIds.has(userId);
+    }
+
+    /**
+     * Get a user node by ID
+     */
+    getUserNodeById(userId) {
+        return this.allNodesData.find(n => n.id === userId && n.type === 'user') || null;
+    }
+
+    /**
+     * Get all superuser nodes
+     */
+    getSuperuserNodes() {
+        return this.allNodesData.filter(n => n.type === 'superuser');
+    }
+
+    /**
+     * Get a superuser node by ID
+     */
+    getSuperuserNodeById(id) {
+        return this.allNodesData.find(n => n.id === id && n.type === 'superuser') || null;
+    }
+
+    /**
+     * Start blinking a node (for AI analysis in progress)
+     */
+    startNodeBlink(nodeId) {
+        if (!this._blinkIntervals) this._blinkIntervals = new Map();
+        if (this._blinkIntervals.has(nodeId)) return;
+
+        let visible = true;
+        const interval = setInterval(() => {
+            visible = !visible;
+            try {
+                this.nodesDataset.update({
+                    id: nodeId,
+                    opacity: visible ? 1.0 : 0.2,
+                });
+            } catch (e) { /* node might not exist */ }
+        }, 400);
+        this._blinkIntervals.set(nodeId, interval);
+    }
+
+    /**
+     * Stop blinking a node
+     */
+    stopNodeBlink(nodeId) {
+        if (!this._blinkIntervals) return;
+        const interval = this._blinkIntervals.get(nodeId);
+        if (interval) {
+            clearInterval(interval);
+            this._blinkIntervals.delete(nodeId);
+            try {
+                this.nodesDataset.update({ id: nodeId, opacity: 1.0 });
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    /**
+     * Find superuser connected to a given user
+     */
+    getSuperuserForUser(userId) {
+        const edge = this.allEdgesData.find(e => e.type === 'superuser-user' && e.to === userId);
+        if (!edge) return null;
+        return this.getSuperuserNodeById(edge.from);
+    }
+
+    /**
+     * Toggle exploration data visibility
+     */
+    toggleExplorationData(visible) {
+        this.explorationVisible = visible;
+
+        if (!visible) {
+            // Remove exploration nodes and edges from visible datasets
+            const nodeIdsToRemove = Array.from(this.explorationNodeIds);
+            const edgeIdsToRemove = Array.from(this.explorationEdgeIds);
+            this.nodesDataset.remove(nodeIdsToRemove);
+            this.edgesDataset.remove(edgeIdsToRemove);
+
+            // Also remove any edges that connect TO exploration nodes
+            const connectedEdges = this.edgesDataset.get({
+                filter: (e) => this.explorationNodeIds.has(e.from) || this.explorationNodeIds.has(e.to),
+            });
+            this.edgesDataset.remove(connectedEdges.map(e => e.id));
+        } else {
+            // Re-add exploration nodes and edges
+            const nodesToAdd = this.allNodesData
+                .filter(n => this.explorationNodeIds.has(n.id))
+                .map(n => this._toVisNode(n));
+            const edgesToAdd = this.allEdgesData
+                .filter(e => e._exploration)
+                .map((e, i) => this._toVisEdge(e, this.allEdgesData.indexOf(e)));
+
+            try { this.nodesDataset.add(nodesToAdd); } catch (e) { /* already exists */ }
+            try { this.edgesDataset.add(edgesToAdd); } catch (e) { /* already exists */ }
+        }
+    }
+
+    /**
+     * Check if any exploration has been done
+     */
+    hasExplorationData() {
+        return this.explorationNodeIds.size > 0;
+    }
+
+    destroy() {
+        if (this.network) {
+            this.network.destroy();
+            this.network = null;
+        }
+    }
+}
+
+// Utility
+import { Network } from 'vis-network/standalone/esm/vis-network';
