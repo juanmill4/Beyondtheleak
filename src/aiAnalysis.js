@@ -4,7 +4,7 @@
  * Uses OpenRouter API with z-ai/glm-4.5-air:free model
  */
 
-const OPENROUTER_API_KEY = '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';
+const OPENROUTER_API_KEY = 'api';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
