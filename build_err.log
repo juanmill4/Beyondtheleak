@@ -1,0 +1,24 @@
+You are using Node.js 22.4.0. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mÔ£ô[39m 9 modules transformed.
+Ô£ù Build failed in 329ms
+error during build:
+src/graph.js (1126:9): Identifier "Network" has already been declared
+file: C:/Users/atrac/Desktop/visualizador/src/graph.js:1126:9
+
+1124: 
+1125: // Utility
+1126: import { Network } from 'vis-network/standalone/esm/vis-network';
+               ^
+
+    at getRollupError (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at error (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/parseAst.js:398:42)
+    at Module.error (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:17040:16)
+    at Module.addImport (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:17567:22)
+    at ImportDeclaration.initialise (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:13090:28)
+    at convertNode (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:16437:10)
+    at convertNodeList (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:16447:38)
+    at Array.program (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:16297:21)
+    at convertNode (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:16436:28)
+    at convertProgram (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:15677:12)

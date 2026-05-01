@@ -1,0 +1,25 @@
+
+> visualizador@0.0.0 build
+> vite build
+
+You are using Node.js 22.4.0. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mÔ£ô[39m 1 modules transformed.
+Ô£ù Build failed in 71ms
+error during build:
+[vite:build-html] src/main.js (2640:2): Expression expected
+file: C:/Users/atrac/Desktop/visualizador/src/main.js:2640:2 (C:/Users/atrac/Desktop/visualizador/index.html)
+
+2638:   nodeModalActionBtn.onclick = () => handleAnalyzeSuperuser(nodeId);
+2639: 
+2640: } else if (type === 'domain') {
+        ^
+2641:   nodeModalTitle.textContent = `\uD83C\uDF10 Domain ÔÇö ${nodeData.label}`;
+
+    at getRollupError (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at ParseError.initialise (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:14465:28)
+    at convertNode (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:16437:10)
+    at convertProgram (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:15677:12)
+    at Module.setSource (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:17392:24)
+    at async ModuleLoader.addModuleSource (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:21474:13)

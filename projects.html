@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DarkEye — Projects</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-tertiary: #334155;
+      --accent-cyan: #00d4ff; --accent-green: #10b981; --text-primary: #e2e8f0;
+      --text-muted: #94a3b8; --border-color: rgba(255,255,255,0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+    .topbar {
+      background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .topbar-left a { color: var(--accent-cyan); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .topbar-left h1 { font-size: 18px; font-weight: 700; }
+    .topbar-left h1 span { color: var(--accent-cyan); }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .search-bar {
+      display: flex; gap: 12px; margin-bottom: 24px;
+    }
+    .search-bar input {
+      flex: 1; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border-color);
+      border-radius: 8px; color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; outline: none;
+    }
+    .search-bar input:focus { border-color: var(--accent-cyan); }
+    table { width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: 12px; overflow: hidden; }
+    thead th {
+      padding: 12px 16px; text-align: left; font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600;
+      background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border-color);
+    }
+    tbody td {
+      padding: 12px 16px; font-size: 13px; border-bottom: 1px solid var(--border-color);
+      max-width: 300px;
+      white-space: normal;
+      word-wrap: break-word;
+    }
+    tbody tr:hover { background: rgba(0, 212, 255, 0.03); }
+    .btn-sm {
+      padding: 5px 10px; font-size: 11px; border: none; border-radius: 6px; cursor: pointer;
+      font-weight: 600; font-family: 'Inter', sans-serif; transition: opacity 0.2s;
+    }
+    .btn-sm:hover { opacity: 0.8; }
+    .btn-load { background: var(--accent-cyan); color: #0f172a; }
+    .btn-delete { background: #ef4444; color: white; }
+    .btn-version { background: var(--accent-green); color: #0f172a; }
+    .actions { display: flex; gap: 6px; }
+    .empty-state {
+      text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px;
+    }
+    .empty-state i { font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="/"><i class="fas fa-arrow-left"></i> Back to DarkEye</a>
+      <h1>My <span>Projects</span></h1>
+    </div>
+  </div>
+  <div class="container">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search by name, description or date..." />
+    </div>
+    <table id="projects-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>User</th>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Version</th>
+          <th>Primary Nodes</th>
+          <th>Superusers</th>
+          <th>Total Nodes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="projects-tbody"></tbody>
+    </table>
+    <div class="empty-state" id="empty-state" style="display:none;">
+      <i class="fas fa-folder-open"></i>
+      No projects found
+    </div>
+  </div>
+
+  <script>
+    const BACKEND_URL = window.location.origin;
+    const token = localStorage.getItem('darkeye_token');
+    if (!token) window.location.href = '/login.html';
+
+    let debounceTimer;
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadProjects(e.target.value), 300);
+    });
+
+    async function loadProjects(search = '') {
+      const tbody = document.getElementById('projects-tbody');
+      const emptyState = document.getElementById('empty-state');
+      try {
+        const url = `${BACKEND_URL}/api/v1/projects?search=${encodeURIComponent(search)}`;
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.status === 401) { localStorage.clear(); window.location.href = '/login.html'; return; }
+        const projects = await res.json();
+        if (projects.length === 0) {
+          tbody.innerHTML = '';
+          emptyState.style.display = 'block';
+          return;
+        }
+        emptyState.style.display = 'none';
+        tbody.innerHTML = projects.map(p => `
+          <tr>
+            <td>${new Date(p.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</td>
+            <td>
+              <div style="font-weight: 500;">${p.user ? p.user.username : '—'}</div>
+              ${p.user && p.user.organization ? `<div style="font-size: 11px; color: var(--text-muted);">${p.user.organization}</div>` : ''}
+            </td>
+            <td title="${p.name}">${p.name}</td>
+            <td title="${p.description}">${p.description || '—'}</td>
+            <td>v${p.version}</td>
+            <td>${p.primary_nodes_count}</td>
+            <td>${p.superusers_count}</td>
+            <td>${p.total_nodes_count}</td>
+            <td class="actions">
+              <button class="btn-sm btn-load" onclick="loadProject(${p.id})"><i class="fas fa-download"></i> Load</button>
+              <button class="btn-sm btn-delete" onclick="deleteProject(${p.id})"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load projects:', err);
+      }
+    }
+
+    function loadProject(id) {
+      localStorage.setItem('darkeye_load_project', id);
+      window.location.href = '/';
+    }
+
+    async function deleteProject(id) {
+      if (!confirm('Delete this project permanently?')) return;
+      try {
+        await fetch(`${BACKEND_URL}/api/v1/projects/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        loadProjects(document.getElementById('search-input').value);
+      } catch (err) { console.error(err); }
+    }
+
+    loadProjects();
+  </script>
+</body>
+</html>

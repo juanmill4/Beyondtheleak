@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DarkEye — Account</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-tertiary: #334155;
+      --accent-cyan: #00d4ff; --accent-green: #10b981; --text-primary: #e2e8f0;
+      --text-muted: #94a3b8; --border-color: rgba(255,255,255,0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+    .topbar {
+      background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px; display: flex; align-items: center; gap: 16px;
+    }
+    .topbar a { color: var(--accent-cyan); text-decoration: none; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .topbar h1 { font-size: 18px; font-weight: 700; }
+    .topbar h1 span { color: var(--accent-cyan); }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .card {
+      background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px;
+      padding: 24px; margin-bottom: 24px;
+    }
+    .card h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .card h2 i { color: var(--accent-cyan); }
+    .info-row { display: flex; gap: 24px; margin-bottom: 12px; }
+    .info-item { flex: 1; }
+    .info-item label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+    .info-item .value { font-size: 14px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+    .badge-admin { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+    .badge-user { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    thead th {
+      padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+    }
+    tbody td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border-color); }
+    tbody tr:hover { background: rgba(0, 212, 255, 0.03); }
+    .btn-sm {
+      padding: 5px 10px; font-size: 11px; border: none; border-radius: 6px; cursor: pointer;
+      font-weight: 600; font-family: 'Inter', sans-serif; transition: opacity 0.2s;
+    }
+    .btn-sm:hover { opacity: 0.8; }
+    .btn-edit { background: var(--accent-cyan); color: #0f172a; }
+    .btn-delete { background: #ef4444; color: white; }
+    .btn-add { background: var(--accent-green); color: #0f172a; padding: 8px 16px; font-size: 12px; }
+    .actions { display: flex; gap: 6px; }
+    /* Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 1000; align-items: center; justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px;
+      padding: 24px; width: 400px; max-width: 90vw;
+    }
+    .modal h3 { margin-bottom: 16px; font-size: 16px; }
+    .modal .form-group { margin-bottom: 14px; }
+    .modal label { display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+    .modal input, .modal select {
+      width: 100%; padding: 9px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color);
+      border-radius: 6px; color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13px; outline: none;
+    }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .modal-actions button {
+      padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;
+      font-weight: 600; font-family: 'Inter', sans-serif; font-size: 12px;
+    }
+    .btn-cancel { background: var(--bg-tertiary); color: var(--text-primary); }
+    .btn-save { background: var(--accent-cyan); color: #0f172a; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="/"><i class="fas fa-arrow-left"></i> Back to DarkEye</a>
+    <h1>My <span>Account</span></h1>
+  </div>
+  <div class="container">
+    <!-- User Info -->
+    <div class="card">
+      <h2><i class="fas fa-user-circle"></i> Account Information</h2>
+      <div class="info-row">
+        <div class="info-item"><label>Username</label><div class="value" id="my-username">—</div></div>
+        <div class="info-item"><label>Display Name</label><div class="value" id="my-display">—</div></div>
+        <div class="info-item"><label>Organization</label><div class="value" id="my-organization">—</div></div>
+        <div class="info-item"><label>Role</label><div class="value" id="my-role">—</div></div>
+      </div>
+    </div>
+
+    <!-- Admin: User Management -->
+    <div class="card" id="admin-panel" style="display:none;">
+      <h2><i class="fas fa-users-cog"></i> User Management <button class="btn-sm btn-add" onclick="openAddUser()" style="margin-left:auto;"><i class="fas fa-plus"></i> Add User</button></h2>
+      <table>
+        <thead><tr><th>Username</th><th>Display Name</th><th>Organization</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add/Edit User Modal -->
+  <div class="modal-overlay" id="user-modal">
+    <div class="modal">
+      <h3 id="modal-title">Add User</h3>
+      <input type="hidden" id="edit-user-id" />
+      <div class="form-group"><label>Username</label><input type="text" id="m-username" /></div>
+      <div class="form-group"><label>Display Name</label><input type="text" id="m-display" /></div>
+      <div class="form-group"><label>Organization</label><input type="text" id="m-organization" placeholder="Optional" /></div>
+      <div class="form-group"><label>Password</label><input type="password" id="m-password" placeholder="Leave empty to keep current" /></div>
+      <div class="form-group"><label>Role</label>
+        <select id="m-role"><option value="user">User</option><option value="admin">Admin</option></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveUser()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BACKEND_URL = window.location.origin;
+    const token = localStorage.getItem('darkeye_token');
+    const user = JSON.parse(localStorage.getItem('darkeye_user') || '{}');
+    if (!token) window.location.href = '/login.html';
+
+    // Populate user info
+    document.getElementById('my-username').textContent = user.username || '—';
+    document.getElementById('my-display').textContent = user.display_name || '—';
+    document.getElementById('my-organization').textContent = user.organization || '—';
+    const roleEl = document.getElementById('my-role');
+    roleEl.innerHTML = user.role === 'admin'
+      ? '<span class="badge badge-admin">Admin</span>'
+      : '<span class="badge badge-user">User</span>';
+
+    // Admin panel
+    if (user.role === 'admin') {
+      document.getElementById('admin-panel').style.display = 'block';
+      loadUsers();
+    }
+
+    async function loadUsers() {
+      const res = await fetch(`${BACKEND_URL}/api/v1/users`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.status === 401) { localStorage.clear(); window.location.href = '/login.html'; return; }
+      const users = await res.json();
+      document.getElementById('users-tbody').innerHTML = users.map(u => `
+        <tr>
+          <td>${u.username}</td>
+          <td>${u.display_name}</td>
+          <td>${u.organization || '—'}</td>
+          <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}">${u.role}</span></td>
+          <td>${new Date(u.created_at).toLocaleDateString('en-GB')}</td>
+          <td class="actions">
+            <button class="btn-sm btn-edit" onclick="openEditUser(${u.id},'${u.username}','${u.display_name}','${u.organization}','${u.role}')"><i class="fas fa-pen"></i></button>
+            <button class="btn-sm btn-delete" onclick="deleteUser(${u.id},'${u.username}')"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openAddUser() {
+      document.getElementById('modal-title').textContent = 'Add User';
+      document.getElementById('edit-user-id').value = '';
+      document.getElementById('m-username').value = '';
+      document.getElementById('m-username').disabled = false;
+      document.getElementById('m-display').value = '';
+      document.getElementById('m-organization').value = '';
+      document.getElementById('m-password').value = '';
+      document.getElementById('m-password').placeholder = 'Enter password';
+      document.getElementById('m-role').value = 'user';
+      document.getElementById('user-modal').classList.add('active');
+    }
+
+    function openEditUser(id, username, display, org, role) {
+      document.getElementById('modal-title').textContent = 'Edit User';
+      document.getElementById('edit-user-id').value = id;
+      document.getElementById('m-username').value = username;
+      document.getElementById('m-username').disabled = true;
+      document.getElementById('m-display').value = display;
+      document.getElementById('m-organization').value = org === 'null' || org === 'undefined' ? '' : org;
+      document.getElementById('m-password').value = '';
+      document.getElementById('m-password').placeholder = 'Leave empty to keep current';
+      document.getElementById('m-role').value = role;
+      document.getElementById('user-modal').classList.add('active');
+    }
+
+    function closeModal() { document.getElementById('user-modal').classList.remove('active'); }
+
+    async function saveUser() {
+      const editId = document.getElementById('edit-user-id').value;
+      const body = {
+        username: document.getElementById('m-username').value,
+        display_name: document.getElementById('m-display').value,
+        organization: document.getElementById('m-organization').value,
+        role: document.getElementById('m-role').value,
+      };
+      const pwd = document.getElementById('m-password').value;
+      if (pwd) body.password = pwd;
+
+      try {
+        if (editId) {
+          await fetch(`${BACKEND_URL}/api/v1/users/${editId}`, {
+            method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        } else {
+          if (!pwd) { alert('Password is required for new users'); return; }
+          await fetch(`${BACKEND_URL}/api/v1/users`, {
+            method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        }
+        closeModal();
+        loadUsers();
+      } catch (err) { console.error(err); alert('Failed to save user'); }
+    }
+
+    async function deleteUser(id, username) {
+      if (!confirm(`Delete user "${username}"?`)) return;
+      await fetch(`${BACKEND_URL}/api/v1/users/${id}`, {
+        method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` },
+      });
+      loadUsers();
+    }
+  </script>
+</body>
+</html>

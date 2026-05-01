@@ -1,0 +1,108 @@
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+35 Carácter: 39
++     Write-Err "Run:  cd 
+osint-backend && python -m 
+venv venv && venv\ ...
++                           
+            ~~
+El token '&&' no es un 
+separador de instrucciones 
+válido en esta versión.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+35 Carácter: 62
++ ...   Write-Err "Run:  cd 
+osint-backend && python -m 
+venv venv && venv\Sc ...
++                           
+                            
+         ~~
+El token '&&' no es un 
+separador de instrucciones 
+válido en esta versión.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+35 Carácter: 87
++ ... nt-backend && python 
+-m venv venv && 
+venv\Scripts\activate && 
+pip ins ...
++                           
+                            
+         ~~
+El token '&&' no es un 
+separador de instrucciones 
+válido en esta versión.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+194 Carácter: 47
++     Write-Host "All 
+services stopped. Goodbye!" 
+-ForegroundColor Cyan
++                           
+                    
+~~~~~~~~~~~~~~~~~~~~~~~
+Falta la cadena en el 
+terminador: ".
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+161 Carácter: 5
++ try {
++     ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+196 Carácter: 1
++ 
+Falta un bloque Catch o 
+Finally en la instrucción 
+Try.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+94 Carácter: 9
++ } catch {
++         ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+57 Carácter: 12
++     } else {
++            ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+52 Carácter: 5
++ try {
++     ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+43 Carácter: 32
++ if (-Not (Test-Path 
+$envFile)) {
++                           
+     ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+    + CategoryInfo          
+    : ParserError: (:) [],  
+   ParentContainsErrorRec   
+ ordException
+    + FullyQualifiedErrorId 
+    : InvalidEndOfLine
+ 

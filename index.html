@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DarkEye - Domain Analysis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/node_modules/flag-icons/css/flag-icons.min.css">
+  <style>
+    body {
+      background-color: #0f172a;
+      margin: 0;
+    }
+
+    body:not(.app-ready)>*:not(#initial-app-loader):not(script):not(style) {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Initial Loader -->
+  <div id="initial-app-loader"
+    style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg-primary);z-index:99999;display:flex;align-items:center;justify-content:center;transition:opacity 0.4s ease;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+      <i class="fas fa-user-secret" style="font-size:48px;color:var(--accent-cyan);"></i>
+      <div
+        style="width:30px;height:30px;border:3px solid var(--border-color);border-top-color:var(--accent-cyan);border-radius:50%;animation:modal-spin 1s linear infinite;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header id="app-header">
+    <div class="header-left">
+      <div class="logo">
+        <i class="fas fa-user-secret mr-2 logo-icon"></i>
+        <span class="logo-text">Dark<span class="logo-accent">Eye</span></span>
+      </div>
+      <div class="search-container">
+        <div class="search-input-wrap">
+          <select id="search-field">
+            <option value="domain">Domain</option>
+            <option value="email">Email</option>
+            <option value="name">Name</option>
+            <option value="phone">Phone</option>
+            <option value="username">Username</option>
+            <option value="password">Password</option>
+            <option value="wallets">Wallets</option>
+            <option value="steamid">Steam ID</option>
+            <option value="steamuser">Steam User</option>
+            <option value="teleid">Telegram ID</option>
+            <option value="teleuser">Telegram User</option>
+            <option value="telephone">Telegram Phone</option>
+            <option value="telelink">Telegram Link</option>
+            <option value="vpn">VPN</option>
+            <option value="ftp">FTP</option>
+            <option value="hwid">HWID</option>
+            <option value="id">ID</option>
+            <option value="country">Country</option>
+          </select>
+          <div class="textarea-wrap">
+            <svg class="search-icon" viewBox="0 0 20 20" fill="none">
+              <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.5" />
+              <line x1="13.5" y1="13.5" x2="18" y2="18" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" />
+            </svg>
+            <textarea id="search-input"
+              placeholder="Enter search terms (one per line)&#10;Shift+Enter for new line&#10;&#10;example.com&#10;test.com&#10;another.com"
+              spellcheck="false"></textarea>
+          </div>
+          <input type="file" id="file-input" accept=".txt" style="display: none;">
+          <input type="file" id="file-input" accept=".txt" style="display: none;">
+          <button id="upload-btn" class="upload-btn" title="Upload TXT file">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M10 4v8M6 10l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M4 16v1a2 2 0 002 2h8a2 2 0 002-2v-1" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" />
+            </svg>
+          </button>
+
+          <select id="data-source-selector" class="search-select" title="Data Source Selection">
+            <option value="all" selected>All data</option>
+            <option value="infostealers">Only infostealers</option>
+            <option value="breaches">Only breaches</option>
+          </select>
+        </div>
+        <div class="search-actions">
+          <button id="analyze-btn" title="Analyze">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M10 3v14M3 10l7-7 7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            <span>Analyze</span>
+          </button>
+          <button id="stop-analysis-btn" class="stop-btn" title="Stop Analysis" disabled>
+            <svg viewBox="0 0 20 20" fill="none">
+              <rect x="6" y="6" width="8" height="8" fill="currentColor" />
+            </svg>
+          </button>
+          <button id="kill-search-btn" class="stop-btn" title="Kill Analysis" style="color: #ff4757; display: none;"
+            disabled>
+            <i class="fas fa-skull"></i>
+          </button>
+          <button id="clean-btn" class="clean-btn" title="Clean Everything">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M3 6h14M8 6V4h4v2M6 6v10a1 1 0 001 1h6a1 1 0 001-1V6" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" />
+            </svg>
+          </button>
+          <select id="load-limit-selector" class="search-select" title="Results limit per search">
+            <option value="">Load: All</option>
+            <option value="60">Load: First 60</option>
+            <option value="150">Load: First 150</option>
+            <option value="300">Load: First 300</option>
+            <option value="600">Load: First 600</option>
+          </select>
+          <button id="btn-load-next" class="sidebar-btn"
+            style="display:none; font-size:11px; padding:4px 10px; white-space:nowrap;"
+            title="Load next batch of results">
+            Load next 60
+          </button>
+        </div>
+        <button id="btn-subdomains" class="subdomain-btn" title="Discover subdomains via crt.sh"
+          style="display:none; align-self: center;">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M10 2v16M2 10h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          <span>Subdomains</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Multi-domain options -->
+    <div class="multi-domain-options" id="multi-domain-options" style="display: none;">
+      <label class="filter-toggle">
+        <input type="checkbox" id="auto-connect-domains" />
+        <span class="toggle-slider"></span>
+        <span class="filter-label">Connected by default</span>
+        <span class="tooltip-icon">?
+          <span class="tooltip-text">Automatically link all searched elements together with a dashed edge</span>
+        </span>
+      </label>
+    </div>
+    <div class="header-right">
+      <div class="header-stats" id="header-stats" style="display:none;">
+        <div class="stat">
+          <span class="stat-label">Hostnames</span>
+          <span class="stat-value" id="stat-services">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Users</span>
+          <span class="stat-value" id="stat-users">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Connections</span>
+          <span class="stat-value" id="stat-connections">0</span>
+        </div>
+      </div>
+
+      <!-- Save Project Button -->
+      <button id="save-project-btn" class="clean-btn" title="Save Project" style="margin-left: 10px; display: flex; align-items: center; gap: 5px;">
+        <i class="fas fa-save"></i>
+        <span style="font-size: 11px; font-weight: 600;">Save</span>
+      </button>
+
+      <div style="position: relative;">
+        <button id="physics-settings-btn" class="clean-btn" title="Graph Physics Output" style="margin-left: 10px;">
+          <i class="fas fa-cog"></i>
+        </button>
+        <div id="physics-settings-menu" class="context-menu"
+          style="display: none; right: 0; left: auto; top: 100%; margin-top: 5px; width: 160px; padding: 6px;">
+          <div
+            style="padding: 6px 8px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 6px;">
+            Mode</div>
+          <div class="context-menu-item mode-item active" data-mode="centralized" style="padding: 8px 12px; margin-bottom: 2px;">
+            <span>Centralized</span>
+          </div>
+          <div class="context-menu-item mode-item" data-mode="hierarchical" style="padding: 8px 12px;">
+            <span>Tree Map</span>
+          </div>
+          <div
+            style="padding: 10px 8px 6px 8px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 6px; margin-top: 6px;">
+            Physics</div>
+          <div class="context-menu-item physics-item" data-physics="smooth" style="padding: 8px 12px; margin-bottom: 2px;">
+            <span>Smooth</span>
+          </div>
+          <div class="context-menu-item physics-item" data-physics="medium" style="padding: 8px 12px; margin-bottom: 2px;">
+            <span>Medium</span>
+          </div>
+          <div class="context-menu-item physics-item active" data-physics="fast" style="padding: 8px 12px; margin-bottom: 2px;">
+            <span>Fast</span>
+          </div>
+          <div class="context-menu-item physics-item" data-physics="blocked" style="padding: 8px 12px;">
+            <span>Blocked</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Menu -->
+      <div style="position: relative; margin-left: 6px; z-index: 100;">
+        <button id="user-menu-btn" title="User Menu" style="
+          width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent-cyan);
+          background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(16,185,129,0.15));
+          color: var(--accent-cyan); font-size: 13px; font-weight: 700; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+          font-family: 'Inter', sans-serif;
+        " onmouseover="this.style.background='rgba(0,212,255,0.25)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(0,212,255,0.15), rgba(16,185,129,0.15))'">
+          <i class="fas fa-user" style="font-size: 12px;"></i>
+        </button>
+        <div id="user-menu-dropdown" class="context-menu" style="display: none; right: 0; left: auto; top: 100%; margin-top: 5px; width: 180px; padding: 4px;">
+          <div style="padding: 8px 12px; font-size: 12px; color: var(--accent-cyan); font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px;" id="user-menu-name">User</div>
+          <div class="context-menu-item" id="user-menu-account">
+            <i class="fas fa-user-circle" style="width: 16px; text-align: center; margin-right: 6px; font-size: 12px;"></i>
+            <span>Account</span>
+          </div>
+          <div class="context-menu-item" id="user-menu-projects">
+            <i class="fas fa-folder-open" style="width: 16px; text-align: center; margin-right: 6px; font-size: 12px;"></i>
+            <span>Projects</span>
+          </div>
+          <div class="context-menu-item" id="user-menu-save">
+            <i class="fas fa-save" style="width: 16px; text-align: center; margin-right: 6px; font-size: 12px;"></i>
+            <span>Save Project</span>
+          </div>
+          <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px; padding-top: 4px;">
+            <div class="context-menu-item" id="user-menu-logout" style="color: #ef4444;">
+              <i class="fas fa-sign-out-alt" style="width: 16px; text-align: center; margin-right: 6px; font-size: 12px;"></i>
+              <span>Logout</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div id="app-layout">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M3 5h14M5 10h10M7 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          Filters
+        </h3>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-show-users" checked />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Show Users</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show or hide all user nodes in the graph</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-input-label">
+            Filter by Name
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Search users by name, email, or username</span>
+            </span>
+          </label>
+          <div class="filter-input-wrap">
+            <input type="text" id="filter-name" placeholder="Username or name..." />
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-org-email" />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Organization Email</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show only users with organization email (e.g. user@domain.com)</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-non-org-email" />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Non-Organization Email</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show only users with external email (e.g. user@gmail.com)</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-multi-service" />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Multi-Hostname Users (2+)</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show only users appearing in 2 or more different services</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-stealer-only" />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Infostealer Users Only</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show only users from infostealer data (fullstealer API) with their connected
+                services and domains</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-deleted" />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Show Deleted Users</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Include nodes that have been soft-deleted from the visualization</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-linked-services" />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Only Direct Linked Services</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show only services that are subdomains of the searched domain(s)</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-hide-external" checked />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Hide External Services</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Hide services not belonging to the searched organization (e.g. google.com,
+                facebook.com)</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group" id="filter-identifiable-group" style="display:none;">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-identifiable" />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Only Identifiable Users</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show only users marked as identifiable by AI analysis (green circles)</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="filter-group" id="filter-country-group">
+          <label class="filter-label" style="margin-bottom:4px;display:block;">Country Filter</label>
+          <select id="filter-country" class="filter-select">
+            <option value="">All Countries</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-toggle">
+            <input type="checkbox" id="filter-show-flags" checked />
+            <span class="toggle-slider"></span>
+            <span class="filter-label">Show Country Flags</span>
+            <span class="tooltip-icon">?
+              <span class="tooltip-text">Show or hide country flags emojis on users and superusers labels</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="sidebar-section" id="ai-section">
+        <h3 class="sidebar-title">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M10 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4l2-4z" stroke="currentColor" stroke-width="1.2"
+              fill="none" />
+          </svg>
+          Deep Analysis
+        </h3>
+
+        <button id="btn-explore-users" class="sidebar-btn" disabled
+          title="Explore all users data via fullstealer/filename API">
+          <svg viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" />
+            <path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          Explore all users data
+        </button>
+
+        <button id="btn-preidentify-users" class="sidebar-btn" disabled
+          title="Preidentify all users extracting static OSINT footprints natively">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M10 4v4m0 4v4M6 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          Preidentify all users
+        </button>
+
+        <button id="btn-amplify-users" class="sidebar-btn" disabled
+          title="Amplify non-identifiable users using the OSINT API backend">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M10 3a7 7 0 0 0-7 7c0 3.86 3.14 7 7 7s7-3.14 7-7a7 7 0 0 0-7-7z" stroke="currentColor"
+              stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M10 10m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" fill="currentColor" />
+            <path d="M14 6l-2 2M6 6l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          Amplify non identifiable users
+        </button>
+
+        <button id="btn-show-all-users-data" class="sidebar-btn" disabled
+          title="Visualize detailed internal data (emails, usernames, socials, github, wallets) for all superusers/users">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M4 10h12M10 4v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          Show all users data
+        </button>
+
+        <button id="btn-show-top-social" class="sidebar-btn"
+          title="Extract specific social network details (posts, profile picture)">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14z" stroke="currentColor" stroke-width="1.5"
+              stroke-linecap="round" />
+            <path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <path d="M12.5 14L15 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          Show top social networks
+        </button>
+
+        <div id="show-all-data-controls" style="display:none; gap:8px; margin-bottom:8px;">
+          <button id="btn-stop-show-all-data" class="sidebar-btn danger" style="flex:1;">
+            <i class="fas fa-pause"></i> Pause
+          </button>
+        </div>
+        <div id="amplify-progress-label"
+          style="display:none;font-size:12px;color:var(--accent);margin-top:4px;margin-bottom:8px;text-align:center;">
+        </div>
+
+        <button id="btn-analyze-users" class="sidebar-btn" disabled>
+          <svg viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" />
+            <path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          Analyze Identifiable Users (AI)
+        </button>
+
+        <button id="btn-toggle-exploration" class="sidebar-btn secondary" style="display:none;">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M1 10s4-7 9-7 9 7 9 7-4 7-9 7-9-7-9-7z" stroke="currentColor" stroke-width="1.5" />
+            <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <span id="toggle-exploration-label">Hide Exploration Data</span>
+        </button>
+
+        <div id="ai-controls" style="display:none; gap: 6px;">
+          <button id="btn-stop-analysis" class="sidebar-btn secondary">
+            <svg viewBox="0 0 20 20" fill="none">
+              <rect x="6" y="6" width="8" height="8" fill="currentColor" />
+            </svg>
+            Stop
+          </button>
+          <button id="btn-kill-analysis" class="sidebar-btn danger" style="margin-bottom: 20px;">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M6 6l8 8M14 6l-8 8" width="8" height="8" fill="currentColor" />
+            </svg>
+            Kill
+          </button>
+        </div>
+
+        <div id="explore-progress-container" style="display:none;">
+          <div class="progress-info" style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
+            <span id="explore-progress-label" style="white-space:normal; word-wrap:break-word;">Exploring
+              users...</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="explore-progress-bar"></div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+            <span id="explore-progress-count" style="font-size:12px; color:var(--text-success);">0 / 0</span>
+          </div>
+          <div class="ai-controls" id="explore-controls" style="margin-top: 15px;">
+            <button id="btn-stop-explore" class="action-btn stop-btn">
+              <i class="fas fa-stop"></i>
+              Stop
+            </button>
+            <button id="btn-kill-explore" class="action-btn"
+              style="flex:1; background-color: var(--status-danger); border-color: var(--status-danger); color: white;">
+              <i class="fas fa-skull"></i>
+              Kill Process
+            </button>
+          </div>
+        </div>
+
+        <div id="ai-progress-container" style="display:none;">
+          <div class="progress-info" style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
+            <span id="ai-progress-label">Processing users...</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="ai-progress-bar"></div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+            <span id="ai-progress-count" style="font-size:12px; color:var(--text-success);">0 / 0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" id="node-actions-section" style="display:none;">
+        <h3 class="sidebar-title">
+          <svg viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5" />
+            <path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          Node Actions
+        </h3>
+        <div id="node-info-panel"></div>
+        <div class="node-action-buttons">
+          <button id="btn-delete-node" class="sidebar-btn danger">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path d="M5 6h10M8 6V4h4v2M6 6v10a1 1 0 001 1h6a1 1 0 001-1V6" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+            Delete Node
+          </button>
+          <button id="btn-connect-users" class="sidebar-btn secondary" style="display:none;">
+            <svg viewBox="0 0 20 20" fill="none">
+              <circle cx="6" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+              <circle cx="14" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+              <line x1="9" y1="10" x2="11" y2="10" stroke="currentColor" stroke-width="1.5" />
+            </svg>
+            Connect Users
+          </button>
+          <button id="btn-connect-domains" class="sidebar-btn secondary" style="display:none;">
+            <svg viewBox="0 0 20 20" fill="none">
+              <circle cx="6" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+              <circle cx="14" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+              <line x1="9" y1="10" x2="11" y2="10" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2" />
+            </svg>
+            Connect Domains
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Graph Canvas -->
+    <main id="graph-container">
+      <div id="graph-canvas"></div>
+      <div id="graph-placeholder">
+        <div class="placeholder-content">
+          <svg class="placeholder-icon" viewBox="0 0 80 80" fill="none">
+            <circle cx="40" cy="40" r="35" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4"
+              opacity="0.3" />
+            <circle cx="40" cy="25" r="4" fill="currentColor" opacity="0.4" />
+            <circle cx="25" cy="50" r="4" fill="currentColor" opacity="0.4" />
+            <circle cx="55" cy="50" r="4" fill="currentColor" opacity="0.4" />
+            <line x1="40" y1="29" x2="27" y2="47" stroke="currentColor" stroke-width="1" opacity="0.3" />
+            <line x1="40" y1="29" x2="53" y2="47" stroke="currentColor" stroke-width="1" opacity="0.3" />
+            <line x1="29" y1="50" x2="51" y2="50" stroke="currentColor" stroke-width="1" opacity="0.3" />
+          </svg>
+          <h2>Select a field and enter search terms</h2>
+          <p>Search by domain, email, username, or other fields - one term per line</p>
+        </div>
+      </div>
+      <!-- Loading overlay -->
+      <div id="loading-overlay" style="display:none;">
+        <div class="loading-spinner"></div>
+        <p id="loading-text">Analyzing domain...</p>
+      </div>
+      <!-- Floating Legend Container -->
+      <div id="legend-container" style="position:absolute; bottom:20px; left:20px; z-index:100;">
+        <button id="btn-toggle-legend" class="sidebar-btn secondary"
+          style="width:36px; height:36px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"
+          title="Show Legend">
+          <i class="fas fa-question" style="font-size: 16px;"></i>
+        </button>
+        <!-- Legend Panel (hidden by default) -->
+        <div id="legend-panel" class="context-menu"
+          style="display:none; position:absolute; bottom:45px; left:0; width:320px; padding:12px; cursor: default;">
+          <h4
+            style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
+            Graph Legend</h4>
+          <div class="legend-items" style="display:flex; flex-direction:column; gap:6px;">
+            <div class="legend-item"><span class="legend-shape hexagon" style="background:var(--accent-cyan);"></span>
+              <span class="legend-label">Primary node</span>
+            </div>
+            <div class="legend-item"><span class="legend-shape square"
+                style="background:#0f172a; border-color:var(--accent-cyan);"></span> <span class="legend-label">Company
+                Services</span></div>
+            <div class="legend-item"><span class="legend-shape square"
+                style="background:transparent; border-color:#ff69b4;"></span> <span class="legend-label">External
+                Services</span></div>
+            <div class="legend-item"><span class="legend-shape triangle up"
+                style="border-bottom-color:var(--text-light);"></span> <span class="legend-label">Superuser</span></div>
+            <div class="legend-item"><span class="legend-shape triangle up"
+                style="border-bottom-color:var(--accent-green);"></span> <span class="legend-label">Very Identifiable
+                Superuser</span></div>
+            <div class="legend-item"><span class="legend-shape triangle up"
+                style="border-bottom-color:var(--accent-amber);"></span> <span class="legend-label">Possible
+                Identifiable Superuser</span></div>
+            <div class="legend-item"><span class="legend-shape triangle up"
+                style="border-bottom-color:rgba(255,255,255,0.4);"></span> <span class="legend-label">Not Identifiable
+                Superuser</span></div>
+            <div class="legend-item"><span class="legend-shape triangle up" style="border-bottom-color:#ff3366;"></span>
+              <span class="legend-label">Superuser with possible critical data</span>
+            </div>
+            <div class="legend-item"><span class="legend-shape circle" style="border-color:var(--text-light);"></span>
+              <span class="legend-label">User</span>
+            </div>
+            <div class="legend-item"><span class="legend-shape circle"
+                style="background:transparent; border-color:var(--accent-cyan);"></span> <span
+                class="legend-label">Company Email</span></div>
+            <div class="legend-item"><span class="legend-shape circle"
+                style="background:transparent; border-color:var(--accent-green);"></span> <span
+                class="legend-label">Very Identifiable User</span></div>
+            <div class="legend-item"><span class="legend-shape circle"
+                style="background:transparent; border-color:var(--accent-amber);"></span> <span
+                class="legend-label">Possible Identifiable User</span></div>
+            <div class="legend-item"><span class="legend-shape circle"
+                style="background:transparent; border-color:rgba(255,255,255,0.4);"></span> <span
+                class="legend-label">Not Identifiable User</span></div>
+            <div class="legend-item"><span class="legend-shape circle"
+                style="border-color:#ff3366; background:transparent;"></span>
+              <span class="legend-label">User with possible critical data</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="context-menu" style="display:none;">
+    <div class="context-menu-item" id="ctx-explore-user">
+      <svg viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" />
+        <path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span>Explore user data</span>
+    </div>
+    <div class="context-menu-item" id="ctx-autopivot-emails" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4l2-4z" stroke="currentColor" stroke-width="1.2" fill="none" />
+      </svg>
+      <span>Autopivot emails</span>
+    </div>
+    <div class="context-menu-item" id="ctx-autopivot-phones" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M6 3h8a1 1 0 011 1v12a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.2" fill="none" />
+        <circle cx="10" cy="15" r="1" fill="currentColor" />
+      </svg>
+      <span>Autopivot phones</span>
+    </div>
+    <div class="context-menu-item" id="ctx-show-user-data" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M4 10h12M10 4v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5" />
+      </svg>
+      <span>Show user data</span>
+    </div>
+
+    <div class="context-menu-item" id="ctx-show-all-social" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14z" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" />
+        <path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        <path d="M12.5 14L15 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span>Show all social networks</span>
+    </div>
+    <div class="context-menu-item" id="ctx-amplify-superuser" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 3a7 7 0 0 0-7 7c0 3.86 3.14 7 7 7s7-3.14 7-7a7 7 0 0 0-7-7z" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" />
+        <path d="M10 10m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" fill="currentColor" />
+        <path d="M14 6l-2 2M6 6l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span>Amplify superuser</span>
+    </div>
+    <div class="context-menu-item" id="ctx-analyze-user">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4l2-4z" stroke="currentColor" stroke-width="1.2" fill="none" />
+      </svg>
+      <span>Analyze user (AI)</span>
+    </div>
+    <div class="context-menu-item" id="ctx-explore-identify">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M3 10h4l2-5 2 10 2-5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+          stroke-linejoin="round" />
+      </svg>
+      <span>Explore &amp; Identify</span>
+    </div>
+    <div class="context-menu-item" id="ctx-show-social" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14z" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" />
+        <path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span>Show social network info</span>
+    </div>
+    <div class="context-menu-item" id="ctx-explore-transactions" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.2" />
+        <path d="M10 6v3l2 1.5M7 13h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+        <path d="M13.5 7.5l1.5-1.5M6.5 7.5L5 6" stroke="currentColor" stroke-width="1" stroke-linecap="round" />
+      </svg>
+      <span>Explore transactions</span>
+    </div>
+    <div class="context-menu-item" id="ctx-delete-edge" style="display:none; color: var(--accent-red);">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span>Delete Connection</span>
+    </div>
+    <!-- New Actions -->
+    <div class="context-menu-item" id="ctx-delete-domain" style="display:none; color: var(--accent-red);">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <span>Delete domain</span>
+    </div>
+    <div class="context-menu-item" id="ctx-delete-domain-cascading" style="display:none; color: var(--accent-red);">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M3 6h14M8 6V4h4v2M6 6v10a1 1 0 001 1h6a1 1 0 001-1V6" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" />
+      </svg>
+      <span>Delete domain & connected users</span>
+    </div>
+    <div class="context-menu-item" id="ctx-remove-group" style="display:none; color: var(--accent-red);">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M5 6h10M8 6V4h4v2M6 6v10a1 1 0 001 1h6a1 1 0 001-1V6" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" />
+      </svg>
+      <span>Remove group</span>
+    </div>
+    <div class="context-menu-item" id="ctx-copy-group" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <rect x="8" y="8" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" />
+        <path d="M12 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v6a1 1 0 001 1h3" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" />
+      </svg>
+      <span>Copy group</span>
+    </div>
+    <div class="context-menu-item" id="ctx-show-supernode" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M4 10h12M10 4v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5" />
+      </svg>
+      <span>Show nested supernodes</span>
+    </div>
+    <div class="context-menu-item" id="ctx-delete-node-action" style="display:none; color: var(--accent-red);">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M5 6h10M8 6V4h4v2M6 6v10a1 1 0 001 1h6a1 1 0 001-1V6" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" />
+      </svg>
+      <span>Delete node</span>
+    </div>
+    <div class="context-menu-item" id="ctx-connect-node-action" style="display:none;">
+      <svg viewBox="0 0 20 20" fill="none">
+        <circle cx="6" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+        <circle cx="14" cy="10" r="3" stroke="currentColor" stroke-width="1.5" />
+        <line x1="9" y1="10" x2="11" y2="10" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2" />
+      </svg>
+      <span>Connect to...</span>
+    </div>
+  </div>
+
+  <!-- Generic Node Details Modal -->
+  <div id="node-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="node-modal-title">Node Details</h3>
+        <button id="node-modal-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" id="node-modal-body">
+        <!-- Dynamically populated -->
+      </div>
+      <div class="modal-footer">
+        <button id="node-modal-action-btn" class="sidebar-btn" style="display:none;">
+          <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+            <path d="M10 2l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4l2-4z" stroke="currentColor" stroke-width="1.2"
+              fill="none" />
+          </svg>
+          Deep AI Analysis
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Append Modal -->
+  <div id="search-append-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 400px; text-align: center; position: relative;">
+      <button id="btn-search-append-close"
+        style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;padding:0;"
+        title="Close">&times;</button>
+      <h3 style="margin-bottom: 20px; color: var(--text-light); font-weight: 500;">Existing Graph Data</h3>
+      <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 14px;">The canvas is currently populated.
+        Would you like to clear the existing layout or append the new search results into the current graph?</p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="btn-search-clear" class="sidebar-btn secondary" style="flex:1; justify-content: center;">Clear
+          Canvas</button>
+        <button id="btn-search-append" class="sidebar-btn success" style="flex:1; justify-content: center;">Keep and
+          Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Preview Modal -->
+  <div id="image-modal" class="modal-overlay"
+    style="display:none; z-index: 100000; justify-content: center; align-items: center; background: rgba(0,0,0,0.85);">
+    <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+      <button id="image-modal-close" class="modal-close"
+        style="position: absolute; top: -40px; right: -40px; font-size: 32px; color: white; cursor: pointer; background: none; border: none;">&times;</button>
+      <img id="image-modal-img" src=""
+        style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+    </div>
+  </div>
+
+  <!-- Floating Analysis Status -->
+  <div id="floating-analysis-status" class="floating-analysis" style="display:none;">
+    <div class="floating-analysis-spinner"></div>
+    <span id="floating-analysis-text">Analysing superuser...</span>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- Save Project Modal -->
+  <div id="save-project-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10000; align-items:center; justify-content:center;">
+    <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; padding:24px; width:480px; max-width:90vw; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+      <h3 style="font-size:16px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+        <i class="fas fa-save" style="color:var(--accent-cyan);"></i> Save Project
+      </h3>
+      <div style="margin-bottom:14px;">
+        <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600; letter-spacing:0.5px; margin-bottom:4px;">Project Name</label>
+        <input type="text" id="save-project-name" placeholder="Enter project name..." style="width:100%; padding:10px 12px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13px; outline:none;" />
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600; letter-spacing:0.5px; margin-bottom:4px;">Description <span style="font-weight:400; text-transform:none;">(auto-generated, editable)</span></label>
+        <textarea id="save-project-desc" rows="3" style="width:100%; padding:10px 12px; background:var(--bg-tertiary); border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); font-family:'Inter',sans-serif; font-size:13px; outline:none; resize:vertical;"></textarea>
+      </div>
+      <div id="save-project-overwrite-section" style="margin-bottom:14px; display:none;">
+        <label style="display:block; font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600; letter-spacing:0.5px; margin-bottom:8px;">Save Mode</label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; margin-bottom:6px;">
+          <input type="radio" name="save-mode" value="overwrite" checked style="accent-color:var(--accent-cyan);" /> Overwrite current version
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+          <input type="radio" name="save-mode" value="new-version" style="accent-color:var(--accent-cyan);" /> Save as new version
+        </label>
+      </div>
+      <div style="display:flex; font-size:12px; color:var(--text-muted); gap:16px; margin-bottom:16px;" id="save-project-stats"></div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="save-project-cancel" style="padding:8px 16px; background:var(--bg-tertiary); border:none; border-radius:6px; color:var(--text-primary); cursor:pointer; font-weight:600; font-family:'Inter',sans-serif; font-size:12px;">Cancel</button>
+        <button id="save-project-confirm" style="padding:8px 16px; background:linear-gradient(135deg, var(--accent-cyan), #0891b2); border:none; border-radius:6px; color:#0f172a; cursor:pointer; font-weight:700; font-family:'Inter',sans-serif; font-size:12px;">
+          <i class="fas fa-save"></i> Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Before Clear Modal -->
+  <div id="save-before-clear-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10001; align-items:center; justify-content:center;">
+    <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; padding:24px; width:400px; max-width:90vw; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+      <h3 style="font-size:16px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+        <i class="fas fa-exclamation-triangle" style="color:#f59e0b;"></i> Save Project?
+      </h3>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Do you want to save the current project before clearing the canvas?</p>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="clear-cancel" style="padding:8px 16px; background:var(--bg-tertiary); border:none; border-radius:6px; color:var(--text-primary); cursor:pointer; font-weight:600; font-family:'Inter',sans-serif; font-size:12px;">Cancel</button>
+        <button id="clear-dont-save" style="padding:8px 16px; background:#ef4444; border:none; border-radius:6px; color:white; cursor:pointer; font-weight:600; font-family:'Inter',sans-serif; font-size:12px;">Don't Save</button>
+        <button id="clear-save" style="padding:8px 16px; background:linear-gradient(135deg, var(--accent-cyan), #0891b2); border:none; border-radius:6px; color:#0f172a; cursor:pointer; font-weight:700; font-family:'Inter',sans-serif; font-size:12px;">
+          <i class="fas fa-save"></i> Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Social Networks Modal -->
+  <!-- Top Social Networks Modal -->
+  <div id="top-social-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100000; align-items:center; justify-content:center;">
+    <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; padding:24px; width:450px; max-width:90vw; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+      <h3 style="font-size:16px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px; color: var(--text-light);">
+        <i class="fas fa-satellite-dish" style="color:var(--accent-cyan);"></i> Select Networks to Scrape
+      </h3>
+      
+      <div id="top-social-selection-view">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px; line-height: 1.5;">Choose which available social platforms you want to explore for the discovered superusers.</p>
+        
+        <div style="margin-bottom: 12px; display:flex; justify-content: flex-end;">
+          <button id="btn-top-social-select-all" style="background:none; border:none; color:var(--accent-cyan); font-weight:600; font-family:'Inter',sans-serif; font-size:12px; cursor:pointer; text-decoration:underline;">Select All</button>
+        </div>
+
+        <div id="top-social-checkboxes" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 24px; max-height: 250px; overflow-y: auto; padding-right: 8px;">
+          <!-- Checkboxes injected dynamically -->
+        </div>
+        
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button id="btn-top-social-cancel" style="padding:8px 16px; background:var(--bg-tertiary); border:none; border-radius:6px; color:var(--text-primary); cursor:pointer; font-weight:600; font-family:'Inter',sans-serif; font-size:12px;">Cancel</button>
+          <button id="btn-top-social-confirm" style="padding:8px 16px; background:linear-gradient(135deg, var(--accent-cyan), #0891b2); border:none; border-radius:6px; color:#0f172a; cursor:pointer; font-weight:700; font-family:'Inter',sans-serif; font-size:12px;">
+            <i class="fas fa-play" style="margin-right: 4px;"></i> Start Scraping
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Bottom Progress Bar for Top Social Networks -->
+  <div id="floating-social-progress" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:9000; background:rgba(15, 23, 42, 0.95); border:1px solid var(--border-color); border-radius:12px; padding:16px 24px; width:400px; box-shadow:0 15px 35px rgba(0,0,0,0.5); backdrop-filter:blur(10px);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h4 style="color:var(--text-light); margin:0; font-size:14px; display:flex; align-items:center; gap:8px;">
+        <i class="fas fa-satellite-dish" style="color:var(--accent-cyan);"></i> Scraping Social Networks
+      </h4>
+      <span id="top-social-progress-count" style="font-size:13px; font-weight:700; color:var(--accent-cyan);">0 / 0</span>
+    </div>
+    <div style="width:100%; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; margin-bottom:8px;">
+      <div id="top-social-progress-bar" style="height:100%; width:0%; background:var(--accent-cyan); transition:width 0.3s ease;"></div>
+    </div>
+    <div id="top-social-current-task" style="font-size:12px; color:var(--text-muted); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Initializing...</div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

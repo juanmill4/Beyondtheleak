@@ -1,0 +1,51 @@
+
+  +--------------------------------------------------+
+  |      DarkEye - Service Launcher                  |
+  +--------------------------------------------------+
+
+
+*  Checking virtual environment...
+   [OK] Virtual environment found.
+   [OK] .env loaded.
+
+*  Checking PostgreSQL...
+   [OK] PostgreSQL service is already running.
+   [OK] PostgreSQL accepting connections on port 5432.
+
+*  Starting Redis (Docker Compose)...
+   [!] Docker not available - skipping Redis container.
+   [!] Make sure Redis is running externally if you need Celery.
+
+*  Starting FastAPI server (port 8000)...
+   [OK] FastAPI  PID 41568  ->  http://localhost:8000
+   [OK] Logs: osint-backend\logs\fastapi_stdout.log / fastapi_stderr.log
+
+*  Starting Celery worker...
+   [OK] Celery   PID 20364
+   [OK] Logs: osint-backend\logs\celery_stdout.log / celery_stderr.log
+
+*  Starting Vite dev server (port 5173)...
+Start-Process : Este 
+comando no se puede 
+ejecutar debido al error: 
+%1 no es una aplicación 
+Win32 válida.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+121 Carácter: 13
++     $vite = Start-Process 
+-NoNewWindow -PassThru 
+-FilePath $npmCmd -A ...
++             ~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : InvalidOperation: (:  
+  ) [Start-Process], Inva   
+ lidOperationException
+    + FullyQualifiedErrorId 
+    : InvalidOperationExce  
+  ption,Microsoft.PowerSh   
+ ell.Commands.StartProce    
+ssCommand
+ 

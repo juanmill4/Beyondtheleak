@@ -1,0 +1,55 @@
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+194 Carácter: 47
++     Write-Host "All 
+services stopped. Goodbye!" 
+-ForegroundColor Cyan
++                           
+                    
+~~~~~~~~~~~~~~~~~~~~~~~
+Falta la cadena en el 
+terminador: ".
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+161 Carácter: 5
++ try {
++     ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+196 Carácter: 1
++ 
+Falta un bloque Catch o 
+Finally en la instrucción 
+Try.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+127 Carácter: 19
++ if (-Not $npmCmd) {
++                   ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+En C:\Users\atrac\Desktop\vi
+sualizador\start_all.ps1: 
+16 Carácter: 24
++ function Write-Ok      { 
+param($msg) Write-Host "   
+âo" $msg"  -Foreg ...
++                        ~
+Falta la llave de cierre 
+"}" en el bloque de 
+instrucciones o la 
+definición de tipo.
+    + CategoryInfo          
+    : ParserError: (:) [],  
+   ParentContainsErrorRec   
+ ordException
+    + FullyQualifiedErrorId 
+    : TerminatorExpectedAt  
+  EndOfString
+ 

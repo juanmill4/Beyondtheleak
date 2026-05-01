@@ -1,0 +1,26 @@
+
+> visualizador@0.0.0 build
+> vite build
+
+You are using Node.js 22.4.0. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mÔ£ô[39m 9 modules transformed.
+Ô£ù Build failed in 128ms
+error during build:
+src/graph.js (49:0): Expression expected
+file: C:/Users/atrac/Desktop/visualizador/src/graph.js:49:0
+
+47: }
+48: 
+49: }
+    ^
+50: this.nodesDataset = new DataSet();
+51: this.edgesDataset = new DataSet();
+
+    at getRollupError (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at ParseError.initialise (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:14465:28)
+    at convertNode (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:16437:10)
+    at convertProgram (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:15677:12)
+    at Module.setSource (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:17392:24)
+    at async ModuleLoader.addModuleSource (file:///C:/Users/atrac/Desktop/visualizador/node_modules/rollup/dist/es/shared/node-entry.js:21474:13)
